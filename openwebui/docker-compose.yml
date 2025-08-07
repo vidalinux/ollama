@@ -1,0 +1,67 @@
+services:
+  openwebui:
+#    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:cuda
+    container_name: openwebui_server
+#    network_mode: "host"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - OLLAMA_BASE_URL=http://172.35.0.1:11434
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    networks:
+      ollamanet:
+        ipv4_address: 172.35.0.2
+
+  postgresdb:
+    image: postgres:alpine
+    container_name: postgresql_server
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=ollamadb
+      - POSTGRES_USER=ollamausr
+      - POSTGRES_PASSWORD=M3caG03nDi3z@2025@
+    networks:
+      ollamanet:
+        ipv4_address: 172.35.0.3
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx_server
+    restart: unless-stopped
+    ports:
+        - 80:80
+        - 443:443
+    volumes:
+        - ./nginx/conf:/etc/nginx/conf.d
+        - ./nginx/ssl:/etc/nginx/ssl
+        - ./nginx/data:/var/www/html
+    networks:
+      ollamanet:
+        ipv4_address: 172.35.0.4
+
+volumes:
+  open-webui:
+
+networks:
+ ollamanet:
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.35.0.0/24
+        gateway: 172.35.0.1
